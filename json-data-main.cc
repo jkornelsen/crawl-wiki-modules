@@ -33,6 +33,8 @@
 #include <set>
 #include <unistd.h>
 
+//#define OUTPUT_QUOTES
+
 // Clockwise, around the compass from north (same order as run_dir_type)
 const struct coord_def Compass[9] =
 {
@@ -122,24 +124,28 @@ static string _book_name(book_type book)
     return item.name(DESC_PLAIN, false, true);
 }
 
-static JsonNode *_spell_books(spell_type spell)
+static JsonNode *_spell_books(spell_type which_spell)
 {
     JsonNode *obj(json_mkobject());
-    for (int i = 0; i < NUM_FIXED_BOOKS; ++i)
+    bool has_books = false;
+    for (int i = 0; i < NUM_BOOKS; ++i)
     {
-        const book_type book = static_cast<book_type>(i);
-        if (!item_type_removed(OBJ_BOOKS, book))
+        auto book = static_cast<book_type>(i);
+        if (!book_exists(book))
+            continue;
+        for (spell_type spell : spellbook_template(book))
         {
-            vector<spell_type> list = spellbook_template(book);
-            if (std::find(list.begin(), list.end(), spell) != list.end())
+            if (spell == which_spell)
             {
+                has_books = true;
                 json_append_member(obj, _book_name(book).c_str(), json_mkbool(true));
             }
         }
     }
+    if (!has_books)
+        return nullptr;
     return obj;
 }
-
 
 static JsonNode *_spell_range(spell_type spell)
 {
@@ -190,13 +196,19 @@ static JsonNode *_spell_object(spell_type spell)
     json_append_member(obj, "description",
                        json_mkstring(trimmed_string(
                            getLongDescription(name + " spell")).c_str()));
+    
+#ifdef OUTPUT_QUOTES
     string quote = getQuoteString(name + " spell");
     if (!quote.empty())
     {
         json_append_member(obj, "quote",
                            json_mkstring(trimmed_string(quote).c_str()));
     }
-    json_append_member(obj, "books", _spell_books(spell));
+#endif
+    JsonNode *books = _spell_books(spell);
+    if (books == nullptr)
+        return nullptr;
+    json_append_member(obj, "books", books);
 
     return obj;
 }
@@ -210,7 +222,9 @@ static JsonNode *_spell_list()
         if (!is_valid_spell(spell) || !is_player_spell(spell))
             continue;
 
-        json_append_member(obj, spell_title(spell), _spell_object(spell));
+        JsonNode *spell_obj = _spell_object(spell);
+        if (spell_obj != nullptr)
+            json_append_member(obj, spell_title(spell), spell_obj);
     }
     return obj;
 }
@@ -237,23 +251,26 @@ static JsonNode *_book_object(book_type book)
     json_append_member(obj, "description",
                        json_mkstring(trimmed_string(
                            getLongDescription(_book_name(book).c_str())).c_str()));
+#ifdef OUTPUT_QUOTES
     string quote = getQuoteString(_book_name(book).c_str());
     if (!quote.empty())
     {
         json_append_member(obj, "quote",
                            json_mkstring(trimmed_string(quote).c_str()));
     }
+#endif
     return obj;
 }
 
 static JsonNode *_book_list()
 {
     JsonNode *obj(json_mkobject());
-    for (int i = 0; i < NUM_FIXED_BOOKS; ++i)
+    for (int i = 0; i < NUM_BOOKS; ++i)
     {
-        const book_type book = static_cast<book_type>(i);
-        if (!item_type_removed(OBJ_BOOKS, book))
-            json_append_member(obj, _book_name(book).c_str(), _book_object(book));
+        auto book = static_cast<book_type>(i);
+        if (!book_exists(book))
+            continue;
+        json_append_member(obj, _book_name(book).c_str(), _book_object(book));
     }
     return obj;
 }
