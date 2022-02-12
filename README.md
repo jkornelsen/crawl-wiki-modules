@@ -1,5 +1,5 @@
 # crawl-wiki-modules
-C++ tool and Lua modules for generating Crawl Wiki content (http://crawl.chaosforge.org).
+C++ tool and Lua module for generating Crawl Wiki content (http://crawl.chaosforge.org).
 
 This is an update of the project at https://github.com/plampila/crawl-wiki-modules.
 
